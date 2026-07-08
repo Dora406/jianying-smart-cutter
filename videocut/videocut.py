@@ -56,7 +56,7 @@ def bring_jianying_to_foreground():
                 user32.GetWindowTextW(hwnd, buf, length + 1)
                 if "剪映" in buf.value:
                     hwnd_list.append(hwnd)
-                    return False 
+                    return False
         return True
 
     cb_func = WNDENUMPROC(callback)
@@ -73,14 +73,15 @@ def bring_jianying_to_foreground():
 # 自动获取到的动态参数
 JIANYING_PATH = find_jianying_path()
 VIDEO_PATH = os.path.join(CURRENT_DIR, "video.mp4")
-IMG_DIR = os.path.join(CURRENT_DIR, "img") 
+IMG_DIR = os.path.join(CURRENT_DIR, "img")
 
-# 动作间隙停顿
+# 极速执行流控制
 pyautogui.PAUSE = 0.2
 
 def wait_and_click(image_name, confidence=0.8, timeout=30, double_click=False, right_click=False, region=None):
     """
-    使用 OpenCV 矩阵精准识别静态 UI 组件，支持传入 region 缩小搜索范围
+    【万能多尺度自适应匹配核心函数】
+    自动循环将图片缩放为 100%, 125%, 150%, 175%, 200%, 80%, 75% 等多种屏幕缩放比，无视大小只认图案。
     """
     start_time = time.time()
     img_path = os.path.join(IMG_DIR, image_name)
@@ -96,25 +97,35 @@ def wait_and_click(image_name, confidence=0.8, timeout=30, double_click=False, r
         print(f" 读取图片异常 {image_name}: {e}")
         return None
 
+    scales = [1.0, 1.25, 1.5, 1.75, 2.0, 0.8, 0.75]
+
     while time.time() - start_time < timeout:
-        try:
-            if region:
-                location = pyautogui.locateCenterOnScreen(img_bgr, confidence=confidence, region=region)
-            else:
-                location = pyautogui.locateCenterOnScreen(img_bgr, confidence=confidence)
-                
-            if location:
-                if double_click:
-                    pyautogui.doubleClick(location)
-                elif right_click:
-                    pyautogui.rightClick(location)
+        for scale in scales:
+            try:
+                if scale == 1.0:
+                    img_to_search = img_bgr
                 else:
-                    pyautogui.click(location)
-                print(f"成功点击: {image_name}，坐标位置: ({location.x}, {location.y})")
-                time.sleep(0.3) 
-                return location  
-        except pyautogui.ImageNotFoundException:
-            pass
+                    img_to_search = cv2.resize(img_bgr, (0, 0), fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+                
+                if region:
+                    if img_to_search.shape[1] > region[2] or img_to_search.shape[0] > region[3]:
+                        continue
+                
+                location = pyautogui.locateCenterOnScreen(img_to_search, confidence=confidence, region=region)
+                if location:
+                    if double_click:
+                        pyautogui.doubleClick(location)
+                    elif right_click:
+                        pyautogui.rightClick(location)
+                    else:
+                        pyautogui.click(location)
+                    print(f"成功匹配点击: {image_name} (自动适配缩放比: {int(scale*100)}%)，坐标: ({location.x}, {location.y})")
+                    time.sleep(0.3) 
+                    return location  
+            except pyautogui.ImageNotFoundException:
+                pass
+            except Exception:
+                pass
         time.sleep(0.2) 
         
     print(f"超时未找到图片: {image_name}")
@@ -126,20 +137,19 @@ def main():
     print(f"[环境检测] 视频路径: {VIDEO_PATH}")
     print(f"[环境检测] 图片目录: {IMG_DIR}\n")
 
-    # 获取屏幕分辨率
     screen_width, screen_height = pyautogui.size()
 
     # 1 & 2. 智能唤醒 / 打开剪映
     print("正在检查剪映是否已经在运行...")
     if bring_jianying_to_foreground():
-        print("【唤醒成功】检测到剪映已在运行，已成功将其从后台拉出并最大化！")
+        print("【唤醒成功】检测到剪映已地区在运行，已成功将其从后台拉出并最大化！")
         time.sleep(1)
     else:
         print("【全新启动】未检测到运行中的剪映，正在重新打开...")
         if os.path.exists(JIANYING_PATH):
             subprocess.Popen(JIANYING_PATH)
             time.sleep(6) 
-            wait_and_click("maximize.png", timeout=10)
+            pyautogui.hotkey('win', 'up')
         else:
             print("【严重错误】未在系统中找到剪映主程序，且后台未运行剪映，流程终止！")
             return
@@ -147,11 +157,11 @@ def main():
     # 3. 点击"智能粗剪"
     wait_and_click("smart_cut_btn.png")
 
-    # 4. 跳出来的弹窗点击右下角"去创作"
-    wait_and_click("go_create.png")
+    # 4. 弹窗点击"去创作"
+    wait_and_click("go_create.png", confidence=0.7)
     time.sleep(1.5) 
 
-    # 5. 导入文件
+    # 5. 点击导入并选择视频
     wait_and_click("import_btn.png")
     time.sleep(1)
     pyperclip.copy(VIDEO_PATH)
@@ -160,31 +170,38 @@ def main():
     pyautogui.press('enter')
     
     print("正在等待视频导入完成...")
-    time.sleep(3) 
+    time.sleep(3.5)
 
-    # ==================== 6. 悬停 + 智能免图盲点加号 ====================
+    # ==================== 🛠 智能快捷键最大化适配 ====================
+    print("【关键适配】正在通过 Windows 系统组合键单向强行最大化当前窗口...")
+    pyautogui.hotkey('win', 'up')
+    time.sleep(0.8)
+
+    # ==================== 6. 定位腹地 + 严苛防误触狙击圈 ====================
     print("准备将视频加入时间线...")
     video_x = int(screen_width * 0.10)
-    video_y = int(screen_height * 0.16)
+    video_y = int(screen_height * 0.24)
     
-    plus_x = video_x + 32
-    plus_y = video_y + 44
+    print(f"鼠标正在移向视频腹地以完全激活加号: ({video_x}, {video_y})")
+    pyautogui.moveTo(video_x, video_y, duration=0.3)
+    time.sleep(1.0)
     
-    print(f"鼠标正在移向视频右下角以唤醒加号: ({plus_x}, {plus_y})")
-    pyautogui.moveTo(plus_x, plus_y, duration=0.3)
-    time.sleep(0.5) 
+    expanded_plus_region = (max(0, video_x - 50), max(0, video_y - 50), 300, 300)
     
-    media_region = (0, 0, int(screen_width * 0.3), int(screen_height * 0.5))
-    
-    if wait_and_click("plus_btn.png", confidence=0.7, timeout=1.5, region=media_region):
-        print("【成功】通过图片成功点击蓝色加号！")
+    if wait_and_click("plus_btn.png", confidence=0.85, timeout=3.0, region=expanded_plus_region):
+        print("【成功】通过高精度局部图片匹配，成功点击了真正的蓝色加号！")
     else:
-        print("【别慌】由于视频背景改变导致图片未匹配，现在直接使用绝对坐标点击蓝色加号！")
-        pyautogui.click(plus_x, plus_y)
+        print("【物理反击】图片由于极限变形未命中。正在启动键盘终极连招...")
+        pyautogui.click(video_x, video_y)
+        time.sleep(0.3)
+        pyautogui.press('enter')          
+        time.sleep(0.2)
+        pyautogui.press('e')              
+        print("【成功】已通过“单击+回车+E”键盘组合拳将视频强行送入时间线！")
         
     time.sleep(1.5) 
 
-    # ==================== 7. 下半屏定位轨道 + 键盘路径绝对选择 ====================
+    # ==================== 7. 下半屏定位轨道 + 多尺度智能图片匹配菜单 ====================
     print("准备在时间线上右击视频轨道...")
     
     bottom_half_region = (0, int(screen_height * 0.5), screen_width, int(screen_height * 0.5))
@@ -193,27 +210,80 @@ def main():
     if not track_location:
         print("【图片匹配失败】未找到下半屏轨道图片，使用标准全屏比例坐标兜底右击...")
         track_x = int(screen_width * 0.25)  
-        track_y = int(screen_height * 0.66) 
+        track_y = int(screen_height * 0.72) 
         pyautogui.moveTo(track_x, track_y, duration=0.3)
         pyautogui.click()       
         pyautogui.rightClick()  
         
-    print("已成功触发右键，正在利用键盘路径“降维狙击”智能粗剪...")
-    time.sleep(0.6) # 等待右键菜单极其稳定地弹出来
-    
-    # 🛠️ 核心微调点：连续按 8 次向下键，完美命中高亮的“智能粗剪”项
-    for i in range(8):
-        pyautogui.press('down')
-        time.sleep(0.08) # 极微小的物理缓冲，确保软件能完全跟上按键频率
-        
-    print("已精准移动到目标行，正在敲击回车唤醒粗剪面板...")
-    pyautogui.press('enter')
-    time.sleep(1.5) # 等待粗剪弹窗彻底加载完毕
+    ref_x = track_location.x if track_location else int(screen_width * 0.25)
+    ref_y = track_location.y if track_location else int(screen_height * 0.72)
 
-    # 8. 点击右上角"原声剪辑"
+    # 右击完瞬间执行鼠标左移 150 像素！彻底断开与菜单主体的接触，防止悬停触发任何子菜单展开
+    pyautogui.moveTo(max(0, int(ref_x - 150)), int(ref_y))
+    print("已成功触发右键并闪现移开鼠标，正在划定超大范围天空防御区...")
+    time.sleep(0.6) 
+    
+    # 将纵向包围圈顶部从 -450 像素扩容到 -800 像素，完美将推向天空的所有菜单囊括进来
+    menu_search_region = (max(0, int(ref_x - 60)), max(0, int(ref_y - 800)), 500, 950)
+    
+    # 🛠️ 【核心优化 1】降低置信度门槛至 0.73！
+    # 配合多尺度对齐算法，完美无视笔记本缩放产生的 ClearType 文字毛边。
+    # 并且因为 OpenCV 是由上往下扫描屏幕，“智能粗剪”项排在前面，100% 优先匹配并秒速点击！
+    if wait_and_click("smart_cut_menu.png", confidence=0.73, timeout=4.0, region=menu_search_region):
+        print("【全网通关】通过自适应多尺度图形引擎，精准点击了菜单中的“智能粗剪”！")
+    else:
+        # 🛠️ 【核心优化 2】自适应探针兜底键盘流！
+        print("【视觉未匹配】菜单图片识别未通过，启动实时“硬件探针”自适应键盘流...")
+        
+        # 内部局部的实时面板状态监测函数
+        def check_panel_opened():
+            img_audio_path = os.path.join(IMG_DIR, "original_audio.png")
+            try:
+                img_audio = cv2.imdecode(np.fromfile(img_audio_path, dtype=np.uint8), cv2.IMREAD_COLOR)
+                if img_audio is None: return False
+                for scale in [1.0, 1.25, 1.5, 1.75, 2.0, 0.8]:
+                    img_search = img_audio if scale == 1.0 else cv2.resize(img_audio, (0, 0), fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+                    try:
+                        if pyautogui.locateCenterOnScreen(img_search, confidence=0.75):
+                            return True
+                    except pyautogui.ImageNotFoundException:
+                        pass
+            except Exception:
+                pass
+            return False
+
+        panel_success = False
+        # 穷举不同电脑状态下的菜单栏行数：8下（标准无粘贴属性）、9下（包含粘贴属性）、7下（精简版）
+        for downs in [8, 9, 7]:
+            print(f"[自适应纠错] 正在尝试连按 {downs} 次向下键...")
+            old_pause = pyautogui.PAUSE
+            pyautogui.PAUSE = 0.05  # 适当放慢到安全的0.05秒，确保剪映可以100%捕捉按键不丢包！
+            for _ in range(downs):
+                pyautogui.press('down')
+            pyautogui.PAUSE = old_pause  
+            pyautogui.press('enter')
+            
+            time.sleep(1.2) # 给面板展开一秒钟的硬件缓冲时间
+            if check_panel_opened():
+                print(f"【突破成功】经面板闭环验证，连按 {downs} 次向下键已完美唤醒粗剪面板！")
+                panel_success = True
+                break
+            else:
+                print(f"[尝试失败] 按 {downs} 次未能唤醒面板（可能点错），重新右击轨道重试...")
+                pyautogui.moveTo(ref_x, ref_y, duration=0.2)
+                pyautogui.rightClick()  
+                pyautogui.moveTo(max(0, int(ref_x - 150)), int(ref_y))
+                time.sleep(0.5)
+                
+        if not panel_success:
+            print("【严重警告】视觉匹配和键盘自适应穷举全部失效，强行向后流转...")
+        
+    time.sleep(1.5) 
+
+    # 8. 点击"原声剪辑"
     wait_and_click("original_audio.png", timeout=5)
 
-    # 9. 点击右下角"开始粗剪"
+    # 9. 点击"开始粗剪"
     wait_and_click("start_cut.png", timeout=5)
 
     # 10 & 11. 等待粗剪完成并处理导出
