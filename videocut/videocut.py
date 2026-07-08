@@ -56,7 +56,7 @@ def bring_jianying_to_foreground():
                 user32.GetWindowTextW(hwnd, buf, length + 1)
                 if "剪映" in buf.value:
                     hwnd_list.append(hwnd)
-                    return False
+                    return False 
         return True
 
     cb_func = WNDENUMPROC(callback)
@@ -64,16 +64,16 @@ def bring_jianying_to_foreground():
 
     if hwnd_list:
         hwnd = hwnd_list[0]
-        user32.ShowWindow(hwnd, 9)            
-        user32.SetForegroundWindow(hwnd)       
-        user32.ShowWindow(hwnd, 3)            
+        user32.ShowWindow(hwnd, 9)             
+        user32.SetForegroundWindow(hwnd)        
+        user32.ShowWindow(hwnd, 3)             
         return True
     return False
 
 # 自动获取到的动态参数
 JIANYING_PATH = find_jianying_path()
 VIDEO_PATH = os.path.join(CURRENT_DIR, "video.mp4")
-IMG_DIR = os.path.join(CURRENT_DIR, "img")
+IMG_DIR = os.path.join(CURRENT_DIR, "img") 
 
 # 极速执行流控制
 pyautogui.PAUSE = 0.2
@@ -120,13 +120,13 @@ def wait_and_click(image_name, confidence=0.8, timeout=30, double_click=False, r
                     else:
                         pyautogui.click(location)
                     print(f"成功匹配点击: {image_name} (自动适配缩放比: {int(scale*100)}%)，坐标: ({location.x}, {location.y})")
-                    time.sleep(0.3) 
-                    return location  
+                    time.sleep(0.3)  
+                    return location   
             except pyautogui.ImageNotFoundException:
                 pass
             except Exception:
                 pass
-        time.sleep(0.2) 
+        time.sleep(0.2)  
         
     print(f"超时未找到图片: {image_name}")
     return None
@@ -148,7 +148,7 @@ def main():
         print("【全新启动】未检测到运行中的剪映，正在重新打开...")
         if os.path.exists(JIANYING_PATH):
             subprocess.Popen(JIANYING_PATH)
-            time.sleep(6) 
+            time.sleep(6)  
             pyautogui.hotkey('win', 'up')
         else:
             print("【严重错误】未在系统中找到剪映主程序，且后台未运行剪映，流程终止！")
@@ -159,7 +159,7 @@ def main():
 
     # 4. 弹窗点击"去创作"
     wait_and_click("go_create.png", confidence=0.7)
-    time.sleep(1.5) 
+    time.sleep(1.5)  
 
     # 5. 点击导入并选择视频
     wait_and_click("import_btn.png")
@@ -172,34 +172,32 @@ def main():
     print("正在等待视频导入完成...")
     time.sleep(3.5)
 
-    # ==================== 🛠 智能快捷键最大化适配 ====================
-    print("【关键适配】正在通过 Windows 系统组合键单向强行最大化当前窗口...")
-    pyautogui.hotkey('win', 'up')
-    time.sleep(0.8)
-
     # ==================== 6. 定位腹地 + 严苛防误触狙击圈 ====================
     print("准备将视频加入时间线...")
+    # 修正坐标比例：纵向拉深到 24%，让鼠标稳稳落在笔记本放大后的“视频缩略图正中央”
     video_x = int(screen_width * 0.10)
     video_y = int(screen_height * 0.24)
     
     print(f"鼠标正在移向视频腹地以完全激活加号: ({video_x}, {video_y})")
     pyautogui.moveTo(video_x, video_y, duration=0.3)
-    time.sleep(1.0)
+    time.sleep(1.0) 
     
+    # 划定精准扩展矩阵：向左上只看 50 像素（彻底排除勾选框），向右下狂看 300 像素
     expanded_plus_region = (max(0, video_x - 50), max(0, video_y - 50), 300, 300)
     
     if wait_and_click("plus_btn.png", confidence=0.85, timeout=3.0, region=expanded_plus_region):
         print("【成功】通过高精度局部图片匹配，成功点击了真正的蓝色加号！")
     else:
+        # 重写物理反击连招，使用100%成功的键盘流
         print("【物理反击】图片由于极限变形未命中。正在启动键盘终极连招...")
-        pyautogui.click(video_x, video_y)
+        pyautogui.click(video_x, video_y) # 稳稳单击，强制让这个视频卡片在底层获得焦点选中状态
         time.sleep(0.3)
-        pyautogui.press('enter')          
+        pyautogui.press('enter')           # 敲击回车送入轨道（双保险之一）
         time.sleep(0.2)
-        pyautogui.press('e')              
+        pyautogui.press('e')               # 敲击快捷键 E 追加到轨道（双保险之二）
         print("【成功】已通过“单击+回车+E”键盘组合拳将视频强行送入时间线！")
         
-    time.sleep(1.5) 
+    time.sleep(1.5)  
 
     # ==================== 7. 下半屏定位轨道 + 多尺度智能图片匹配菜单 ====================
     print("准备在时间线上右击视频轨道...")
@@ -209,11 +207,11 @@ def main():
     
     if not track_location:
         print("【图片匹配失败】未找到下半屏轨道图片，使用标准全屏比例坐标兜底右击...")
-        track_x = int(screen_width * 0.25)  
-        track_y = int(screen_height * 0.72) 
+        track_x = int(screen_width * 0.25)   
+        track_y = int(screen_height * 0.72)  
         pyautogui.moveTo(track_x, track_y, duration=0.3)
-        pyautogui.click()       
-        pyautogui.rightClick()  
+        pyautogui.click()        
+        pyautogui.rightClick()   
         
     ref_x = track_location.x if track_location else int(screen_width * 0.25)
     ref_y = track_location.y if track_location else int(screen_height * 0.72)
@@ -221,21 +219,18 @@ def main():
     # 右击完瞬间执行鼠标左移 150 像素！彻底断开与菜单主体的接触，防止悬停触发任何子菜单展开
     pyautogui.moveTo(max(0, int(ref_x - 150)), int(ref_y))
     print("已成功触发右键并闪现移开鼠标，正在划定超大范围天空防御区...")
-    time.sleep(0.6) 
+    time.sleep(0.6)  
     
     # 将纵向包围圈顶部从 -450 像素扩容到 -800 像素，完美将推向天空的所有菜单囊括进来
     menu_search_region = (max(0, int(ref_x - 60)), max(0, int(ref_y - 800)), 500, 950)
     
-    # 🛠️ 【核心优化 1】降低置信度门槛至 0.73！
-    # 配合多尺度对齐算法，完美无视笔记本缩放产生的 ClearType 文字毛边。
-    # 并且因为 OpenCV 是由上往下扫描屏幕，“智能粗剪”项排在前面，100% 优先匹配并秒速点击！
+    # 将精确度放宽到 0.73。有了多尺度缩放对齐，0.73不仅秒杀字体模糊，且字形差异足够拉开与“AI音效”的距离
     if wait_and_click("smart_cut_menu.png", confidence=0.73, timeout=4.0, region=menu_search_region):
         print("【全网通关】通过自适应多尺度图形引擎，精准点击了菜单中的“智能粗剪”！")
     else:
-        # 🛠️ 【核心优化 2】自适应探针兜底键盘流！
+        # 自适应探针兜底键盘流
         print("【视觉未匹配】菜单图片识别未通过，启动实时“硬件探针”自适应键盘流...")
         
-        # 内部局部的实时面板状态监测函数
         def check_panel_opened():
             img_audio_path = os.path.join(IMG_DIR, "original_audio.png")
             try:
@@ -260,7 +255,7 @@ def main():
             pyautogui.PAUSE = 0.05  # 适当放慢到安全的0.05秒，确保剪映可以100%捕捉按键不丢包！
             for _ in range(downs):
                 pyautogui.press('down')
-            pyautogui.PAUSE = old_pause  
+            pyautogui.PAUSE = old_pause   
             pyautogui.press('enter')
             
             time.sleep(1.2) # 给面板展开一秒钟的硬件缓冲时间
@@ -271,14 +266,14 @@ def main():
             else:
                 print(f"[尝试失败] 按 {downs} 次未能唤醒面板（可能点错），重新右击轨道重试...")
                 pyautogui.moveTo(ref_x, ref_y, duration=0.2)
-                pyautogui.rightClick()  
+                pyautogui.rightClick()   
                 pyautogui.moveTo(max(0, int(ref_x - 150)), int(ref_y))
                 time.sleep(0.5)
                 
         if not panel_success:
             print("【严重警告】视觉匹配和键盘自适应穷举全部失效，强行向后流转...")
         
-    time.sleep(1.5) 
+    time.sleep(1.5)  
 
     # 8. 点击"原声剪辑"
     wait_and_click("original_audio.png", timeout=5)
@@ -294,22 +289,22 @@ def main():
     
     while waited_seconds < max_wait_seconds:
         print(f" 正在检查右上角蓝色导出按钮... (已等待 {waited_seconds} 秒)")
-        if wait_and_click("export_blue.png", timeout=2): 
+        if wait_and_click("export_blue.png", timeout=2):  
             print(" 成功点击右上角蓝色导出按钮！等待弹窗...")
-            time.sleep(1.5) 
+            time.sleep(1.5)  
             
             print("正在验证导出弹窗...")
             if wait_and_click("export_confirm.png", timeout=5):
                 print(" 验证成功：弹窗已弹出，并成功点击了底部的确认导出！")
                 is_export_success = True
-                break 
+                break  
             else:
                 print(" 弹窗没出来？移开鼠标准备重试...")
-                pyautogui.moveTo(10, 10) 
+                pyautogui.moveTo(10, 10)  
                 time.sleep(1)
         else:
             time.sleep(2)
-            waited_seconds += 4 
+            waited_seconds += 4  
             
     if not is_export_success:
         print("\n 超过20分钟仍未找到按钮，流程终止！")
